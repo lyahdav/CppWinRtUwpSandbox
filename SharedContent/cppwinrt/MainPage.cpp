@@ -71,85 +71,34 @@ namespace winrt::SDKTemplate::implementation
         MainPage::current = *this;
 
         StackPanel stackPanel;
-        StackPanel stackPanelLight;
-        StackPanel stackPanelDark;
 
-        stackPanelDark.RequestedTheme(ElementTheme::Dark);
-        stackPanelDark.Background(SolidColorBrush(Windows::UI::Colors::Black()));
+        auto makeButtonWithFlyout = [](bool shouldConstrainToRootBounds, bool useClickEvent) {
+            Button button;
+            std::wostringstream wostringstream;
+            wostringstream << L"Open Flyout (shouldConstrainToRootBounds=" << shouldConstrainToRootBounds << L",useClickEvent=" << useClickEvent << L")";
+            button.Content(winrt::box_value(wostringstream.str()));
 
-        CommandBarFlyout cbf;
-        AppBarButton abb;
-        abb.Label(L"Button");
-        BitmapIcon icon;
-        std::wstring uriFile{ L"ms-appx:///Assets/app-facebook.png" };
-        Windows::Foundation::Uri uri{ uriFile };
-        icon.UriSource(uri);
-        abb.Icon(icon);
-        cbf.SecondaryCommands().Append(abb);
-
-        Button button1;
-        button1.Content(winrt::box_value(L"CommandBarFlyout"));
-        button1.Flyout(cbf);
-        stackPanelLight.Children().Append(button1);
-
-        Button button2;
-        button2.Content(winrt::box_value(L"CommandBarFlyout"));
-        button2.Flyout(cbf);
-        stackPanelDark.Children().Append(button2);
-
-        auto makeMenuFlyout = [=]() {
-            MenuFlyout mf;
-
-            MenuFlyoutItem mfi2;
-            mfi2.Text(L"Menu Item 1");
-            BitmapIcon icon2;
-            icon2.UriSource(uri);
-            mfi2.Icon(icon2);
-            mf.Items().Append(mfi2);
-
-            MenuFlyoutItem mfi3;
-            mfi3.Text(L"Menu Item 2");
-            BitmapIcon icon3;
-            icon3.UriSource(uri);
-            mfi3.Icon(icon3);
-            mf.Items().Append(mfi3);
-
-            return mf;
-        };
-
-        auto AddMenuFlyoutButtonsToPanel = [=](const winrt::StackPanel &stackPanel, bool includeFix) {
-            auto mf1 = makeMenuFlyout();
-            if (includeFix) {
-                FixMenuFlyoutIconsIfDarkTheme(mf1);
+            StackPanel sp2;
+            Button b2;
+            b2.Content(winrt::box_value(L"b2"));
+            sp2.Children().Append(b2);
+            Flyout flyout;
+            flyout.ShouldConstrainToRootBounds(shouldConstrainToRootBounds);
+            flyout.Content(sp2);
+            if (useClickEvent) {
+                button.Click([=](auto const &...) {
+                    flyout.ShowAt(button);
+                    });
+            } else {
+                button.Flyout(flyout);
             }
-            Button button3;
-            button3.Content(winrt::box_value(includeFix ? L"MenuFlyout using ShowAt with fix" : L"MenuFlyout using ShowAt without fix"));
-            button3.Click([=](const auto &...) {
-                const auto options = winrt::FlyoutShowOptions();
-                options.Placement(winrt::FlyoutPlacementMode::Top);
-                mf1.ShowAt(button3, options);
-                });
-
-            auto mf2 = makeMenuFlyout();
-            if (includeFix) {
-                FixMenuFlyoutIconsIfDarkTheme(mf2);
-            }
-            Button buttonWithFlyoutSet;
-            buttonWithFlyoutSet.Content(winrt::box_value(includeFix ? L"MenuFlyout using Flyout property with fix" : L"MenuFlyout using Flyout property without fix"));
-            buttonWithFlyoutSet.Flyout(mf2);
-
-            stackPanel.Children().Append(button3);
-            stackPanel.Children().Append(buttonWithFlyoutSet);
+            return button;
         };
-
-        AddMenuFlyoutButtonsToPanel(stackPanelDark, false);
-        AddMenuFlyoutButtonsToPanel(stackPanelDark, true);
-        AddMenuFlyoutButtonsToPanel(stackPanelLight, false);
-        AddMenuFlyoutButtonsToPanel(stackPanelLight, true);
-
-
-        stackPanel.Children().Append(stackPanelLight);
-        stackPanel.Children().Append(stackPanelDark);
+        for (auto shouldConstrainToRootBounds : { false, true }) {
+            for (auto useClickEvent : { false, true }) {
+                stackPanel.Children().Append(makeButtonWithFlyout(shouldConstrainToRootBounds, useClickEvent));
+            }
+        }
 
         this->Content(stackPanel);
     }
