@@ -22,9 +22,44 @@ using namespace winrt::Windows::UI::Xaml::Interop;
 using namespace winrt::Windows::UI::Xaml::Media;
 using namespace winrt::Windows::UI::Xaml::Navigation;
 
+namespace winrt {
+    using namespace winrt::Windows::Foundation;
+    using namespace winrt::Windows::Foundation::Collections;
+    using namespace winrt::Windows::UI::Xaml::Controls;
+    using namespace winrt::Windows::UI::Xaml;
+    using namespace winrt::Windows::UI::Xaml::Controls::Primitives;
+}
+
 namespace winrt::SDKTemplate::implementation
 {
     SDKTemplate::MainPage MainPage::current{ nullptr };
+
+    /*static*/ void FixMenuFlyoutIconsIfDarkTheme(
+        const winrt::MenuFlyout& menuFlyout) noexcept {
+        // Workaround Xaml bug with MenuFlyoutItem icons and dark mode:
+        // https://github.com/microsoft/microsoft-ui-xaml/issues/5381
+
+        menuFlyout.Opened([](winrt::IInspectable const& sender, const auto&) {
+            FixMenuItemIconsRecursively(sender.as<winrt::MenuFlyout>().Items());
+            });
+    }
+
+    /*static*/ void FixMenuItemIconsRecursively(
+        const winrt::IVector<winrt::MenuFlyoutItemBase>& items) noexcept {
+        for (auto const& item : items) {
+            if (auto menuFlyoutItem = item.try_as<winrt::MenuFlyoutItem>()) {
+                if (menuFlyoutItem.ActualTheme() == winrt::ElementTheme::Dark) {
+                    menuFlyoutItem.Icon().Foreground(nullptr);
+                }
+            }
+            else if (auto menuFlyoutSubItem = item.try_as<winrt::MenuFlyoutSubItem>()) {
+                if (menuFlyoutSubItem.ActualTheme() == winrt::ElementTheme::Dark) {
+                    menuFlyoutSubItem.Icon().Foreground(nullptr);
+                }
+                FixMenuItemIconsRecursively(menuFlyoutSubItem.Items());
+            }
+        }
+    }
 
     MainPage::MainPage()
     {
@@ -53,47 +88,64 @@ namespace winrt::SDKTemplate::implementation
         cbf.SecondaryCommands().Append(abb);
 
         Button button1;
-        button1.Content(winrt::box_value(L"Button1"));
+        button1.Content(winrt::box_value(L"CommandBarFlyout"));
         button1.Flyout(cbf);
         stackPanelLight.Children().Append(button1);
 
         Button button2;
-        button2.Content(winrt::box_value(L"Button2"));
+        button2.Content(winrt::box_value(L"CommandBarFlyout"));
         button2.Flyout(cbf);
         stackPanelDark.Children().Append(button2);
 
-        MenuFlyout mf;
-        MenuFlyoutItem mfi;
-        mfi.Text(L"Menu Item with workaround");
-        BitmapIcon icon1;
-        icon1.UriSource(uri);
-        mfi.Icon(icon1);
-        mfi.PointerExited([=](const auto &...) {
-            auto bitmapIcon = mfi.Icon().as<BitmapIcon>();
-            bitmapIcon.UriSource(bitmapIcon.UriSource());
-            });
+        auto makeMenuFlyout = [=]() {
+            MenuFlyout mf;
 
-        mf.Items().Append(mfi);
+            MenuFlyoutItem mfi2;
+            mfi2.Text(L"Menu Item 1");
+            BitmapIcon icon2;
+            icon2.UriSource(uri);
+            mfi2.Icon(icon2);
+            mf.Items().Append(mfi2);
 
-        MenuFlyoutItem mfi2;
-        mfi2.Text(L"Menu Item without workaround");
-        BitmapIcon icon2;
-        icon2.UriSource(uri);
-        mfi2.Icon(icon2);
-        mf.Items().Append(mfi2);
+            MenuFlyoutItem mfi3;
+            mfi3.Text(L"Menu Item 2");
+            BitmapIcon icon3;
+            icon3.UriSource(uri);
+            mfi3.Icon(icon3);
+            mf.Items().Append(mfi3);
 
-        MenuFlyoutItem mfi3;
-        mfi3.Text(L"Menu Item with foreground set");
-        BitmapIcon icon3;
-        icon3.UriSource(uri);
-        icon3.Foreground(nullptr);
-        mfi3.Icon(icon3);
-        mf.Items().Append(mfi3);
+            return mf;
+        };
 
-        Button button3;
-        button3.Content(winrt::box_value(L"MenuFlyout"));
-        button3.Flyout(mf);
-        stackPanelDark.Children().Append(button3);
+        auto AddMenuFlyoutButtonsToPanel = [=](const winrt::StackPanel &stackPanel, bool includeFix) {
+            auto mf1 = makeMenuFlyout();
+            if (includeFix) {
+                FixMenuFlyoutIconsIfDarkTheme(mf1);
+            }
+            Button button3;
+            button3.Content(winrt::box_value(includeFix ? L"MenuFlyout using ShowAt with fix" : L"MenuFlyout using ShowAt without fix"));
+            button3.Click([=](const auto &...) {
+                const auto options = winrt::FlyoutShowOptions();
+                options.Placement(winrt::FlyoutPlacementMode::Top);
+                mf1.ShowAt(button3, options);
+                });
+
+            auto mf2 = makeMenuFlyout();
+            if (includeFix) {
+                FixMenuFlyoutIconsIfDarkTheme(mf2);
+            }
+            Button buttonWithFlyoutSet;
+            buttonWithFlyoutSet.Content(winrt::box_value(includeFix ? L"MenuFlyout using Flyout property with fix" : L"MenuFlyout using Flyout property without fix"));
+            buttonWithFlyoutSet.Flyout(mf2);
+
+            stackPanel.Children().Append(button3);
+            stackPanel.Children().Append(buttonWithFlyoutSet);
+        };
+
+        AddMenuFlyoutButtonsToPanel(stackPanelDark, false);
+        AddMenuFlyoutButtonsToPanel(stackPanelDark, true);
+        AddMenuFlyoutButtonsToPanel(stackPanelLight, false);
+        AddMenuFlyoutButtonsToPanel(stackPanelLight, true);
 
 
         stackPanel.Children().Append(stackPanelLight);
