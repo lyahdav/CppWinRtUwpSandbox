@@ -25,6 +25,7 @@ using namespace winrt::Windows::UI::Xaml::Navigation;
 namespace winrt {
     using namespace winrt::Windows::Foundation;
     using namespace winrt::Windows::Foundation::Collections;
+    using namespace Windows::UI;
     using namespace winrt::Windows::UI::Xaml::Controls;
     using namespace winrt::Windows::UI::Xaml;
     using namespace winrt::Windows::UI::Xaml::Controls::Primitives;
@@ -61,6 +62,14 @@ namespace winrt::SDKTemplate::implementation
         }
     }
 
+    winrt::Popup GetPopup() {
+        auto popups =
+            VisualTreeHelper::GetOpenPopups(Window::Current());
+        if (popups.Size() > 0)
+            return popups.GetAt(0);
+        return nullptr;
+    }
+
     MainPage::MainPage()
     {
         InitializeComponent();
@@ -72,33 +81,41 @@ namespace winrt::SDKTemplate::implementation
 
         StackPanel stackPanel;
 
-        auto makeButtonWithFlyout = [](bool shouldConstrainToRootBounds, bool useClickEvent) {
+        auto makeButtonWithContentDialog = [](bool setBgColor, bool updatePopupTheme) {
             Button button;
             std::wostringstream wostringstream;
-            wostringstream << L"Open Flyout (shouldConstrainToRootBounds=" << shouldConstrainToRootBounds << L",useClickEvent=" << useClickEvent << L")";
+            wostringstream << L"Open ContentDialog, setBgColor = " << setBgColor << L", updatePopupTheme = " << updatePopupTheme;
             button.Content(winrt::box_value(wostringstream.str()));
 
-            StackPanel sp2;
-            Button b2;
-            b2.Content(winrt::box_value(L"b2"));
-            sp2.Children().Append(b2);
-            Flyout flyout;
-            flyout.ShouldConstrainToRootBounds(shouldConstrainToRootBounds);
-            flyout.Content(sp2);
-            if (useClickEvent) {
-                button.Click([=](auto const &...) {
-                    flyout.ShowAt(button);
-                    });
-            } else {
-                button.Flyout(flyout);
-            }
+            button.Click([=](auto const &...) {
+                ContentDialog dialog{};
+                if (setBgColor) {
+                    dialog.Background(winrt::Media::SolidColorBrush(winrt::Colors::Black()));
+                }
+                dialog.Title(winrt::box_value(L"Title"));
+                dialog.Content(winrt::box_value(L"Content"));
+                dialog.XamlRoot(button.XamlRoot());
+                dialog.CloseButtonText(L"Ok");
+                if (updatePopupTheme) {
+                    dialog.Opened([=](auto const &...) {
+                        if (auto popup = GetPopup()) {
+                            popup.RequestedTheme(button.ActualTheme());
+                        }
+                        });
+                }
+                dialog.ShowAsync();
+                });
             return button;
         };
-        for (auto shouldConstrainToRootBounds : { false, true }) {
-            for (auto useClickEvent : { false, true }) {
-                stackPanel.Children().Append(makeButtonWithFlyout(shouldConstrainToRootBounds, useClickEvent));
+        for (auto updatePopupTheme : { false, true }) {
+            for (auto setBgColor : { false, true }) {
+                stackPanel.Children().Append(makeButtonWithContentDialog(setBgColor, updatePopupTheme));
             }
         }
+
+        // For dark mode:
+        stackPanel.RequestedTheme(Windows::UI::Xaml::ElementTheme::Dark);
+        stackPanel.Background(winrt::Media::SolidColorBrush(winrt::Colors::Black()));
 
         this->Content(stackPanel);
     }
